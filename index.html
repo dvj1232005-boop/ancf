@@ -80,11 +80,11 @@ th,td{
 
 <header>AN QUY CHẾ – HỆ THỐNG ĐĂNG KÝ CA</header>
 
-<!-- LOGIN -->
-<div class="card" id="loginBox">
-  <b>Đăng nhập</b>
-  <input id="nameInput" placeholder="Nhập tên nhân viên">
-  <button onclick="login()">Vào hệ thống</button>
+<!-- NHẬP TÊN (KHÔNG LOGIN) -->
+<div class="card" id="nameBox">
+  <b>Nhập tên của bạn</b>
+  <input id="nameInput" placeholder="Nhân viên: nhập tên đầy đủ | Quản lý: nhập QuanLy">
+  <button onclick="setName()">Xác nhận</button>
 </div>
 
 <!-- APP -->
@@ -93,7 +93,7 @@ th,td{
   <div class="card">
     <b id="hello"></b>
     <span class="badge" id="roleTag"></span>
-    <button class="alt" onclick="logout()">Đăng xuất</button>
+    <button class="alt" onclick="changeName()">Đổi tên</button>
   </div>
 
   <!-- STAFF -->
@@ -126,8 +126,9 @@ const db = firebase.database();
 const days = ["T2","T3","T4","T5","T6","T7","CN"];
 const shifts = ["C1","F1","C2","F2","C3"];
 let user = "";
+let role = "";
 
-/* ========= ISO WEEK (TỰ RESET TUẦN) ========= */
+/* ========= ISO WEEK (RESET TUẦN TỰ ĐỘNG) ========= */
 function getISOWeek(){
   const d = new Date();
   d.setHours(0,0,0,0);
@@ -142,41 +143,46 @@ function getISOWeek(){
 }
 const currentWeek = getISOWeek();
 
-/* ========= LOGIN (AN TOÀN – KHÔNG TREO) ========= */
-function login(){
+/* ========= SET NAME (THAY LOGIN) ========= */
+function setName(){
   user = nameInput.value.trim();
   if(!user){
-    alert("Bạn chưa nhập tên");
+    alert("Vui lòng nhập tên");
     return;
   }
 
-  const role = user === "QuanLy" ? "manager" : "staff";
+  // Chuẩn hóa khoảng trắng
+  user = user.replace(/\s+/g," ");
+
+  // Phân quyền
+  role = (user === "QuanLy") ? "manager" : "staff";
+
   localStorage.user = user;
 
   db.ref("users/" + user).set({ role })
-    .then(start)
+    .then(startApp)
     .catch(err => alert("Lỗi Firebase: " + err.message));
 }
 
-function logout(){
+function changeName(){
   localStorage.clear();
   location.reload();
 }
 
 /* ========= INIT ========= */
-function start(){
-  loginBox.classList.add("hidden");
+function startApp(){
+  nameBox.classList.add("hidden");
   app.classList.remove("hidden");
-  hello.innerText = "Xin chào, " + user;
 
-  db.ref("users/" + user + "/role").once("value", snap => {
-    roleTag.innerText = snap.val();
-    if(snap.val() === "manager"){
-      managerBox.classList.remove("hidden");
-      loadManager();
-    }
-    loadMySchedule();
-  });
+  hello.innerText = "Xin chào, " + user;
+  roleTag.innerText = role;
+
+  if(role === "manager"){
+    managerBox.classList.remove("hidden");
+    loadManager();
+  }
+
+  loadMySchedule();
 }
 
 /* ========= STAFF ========= */
@@ -211,7 +217,10 @@ function renderManage(){
         html += `
           <tr>
             <td>${c.key}</td>
-            <td><input type="checkbox" onchange="pick('${c.key}',this.checked)"></td>
+            <td>
+              <input type="checkbox"
+                onchange="pick('${c.key}',this.checked)">
+            </td>
           </tr>`;
       });
       html += "</table>";
@@ -219,15 +228,16 @@ function renderManage(){
     });
 }
 
-function pick(name, val){
+function pick(name,val){
   const ref = db.ref(`finalSchedule/${currentWeek}/${daySelect.value}/${shiftSelect.value}/${name}`);
   val ? ref.set(true) : ref.remove();
 }
 
-/* ========= AUTO LOGIN ========= */
+/* ========= AUTO VÀO NẾU ĐÃ CÓ TÊN ========= */
 if(localStorage.user){
   user = localStorage.user;
-  start();
+  role = (user === "QuanLy") ? "manager" : "staff";
+  startApp();
 }
 
 /* ========= SERVICE WORKER ========= */
@@ -238,3 +248,4 @@ if("serviceWorker" in navigator){
 
 </body>
 </html>
+
