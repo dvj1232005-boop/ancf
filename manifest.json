@@ -1,7 +1,6 @@
 {
   "name": "An Quy Chế",
   "short_name": "An Quy Chế",
-  "description": "Hệ thống đăng ký và phân ca làm việc",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#020617",
