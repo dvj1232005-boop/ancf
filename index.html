@@ -16,12 +16,10 @@
 <style>
 :root{
   --bg:#020617;
-  --card:#020617;
   --border:#0f172a;
   --primary:#0ea5a4;
   --accent:#facc15;
   --text:#e5e7eb;
-  --muted:#94a3b8;
 }
 *{box-sizing:border-box;font-family:system-ui}
 body{margin:0;background:var(--bg);color:var(--text)}
@@ -33,7 +31,6 @@ header{
   color:#001014;
 }
 .card{
-  background:var(--card);
   border:1px solid var(--border);
   margin:16px;
   padding:16px;
@@ -44,8 +41,8 @@ button{
   border:none;
   padding:8px 16px;
   border-radius:999px;
-  cursor:pointer;
   font-weight:600;
+  cursor:pointer;
 }
 button.alt{background:var(--accent);color:#111}
 input,select{
@@ -83,12 +80,14 @@ th,td{
 
 <header>AN QUY CHẾ – HỆ THỐNG ĐĂNG KÝ CA</header>
 
+<!-- LOGIN -->
 <div class="card" id="loginBox">
   <b>Đăng nhập</b>
   <input id="nameInput" placeholder="Nhập tên nhân viên">
   <button onclick="login()">Vào hệ thống</button>
 </div>
 
+<!-- APP -->
 <div id="app" class="hidden">
 
   <div class="card">
@@ -114,56 +113,65 @@ th,td{
 </div>
 
 <script>
-/* ===== FIREBASE CONFIG (THAY CỦA BẠN) ===== */
+/* ========= FIREBASE CONFIG (THAY CỦA BẠN) ========= */
 const firebaseConfig = {
-  apiKey: "XXX",
-  databaseURL: "XXX",
-  projectId: "XXX"
+  apiKey: "YOUR_API_KEY",
+  databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
+  projectId: "YOUR_PROJECT_ID"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-/* ===== CONSTANT ===== */
-const days=["T2","T3","T4","T5","T6","T7","CN"];
-const shifts=["C1","F1","C2","F2","C3"];
-let user="";
+/* ========= DATA ========= */
+const days = ["T2","T3","T4","T5","T6","T7","CN"];
+const shifts = ["C1","F1","C2","F2","C3"];
+let user = "";
 
-/* ===== ISO WEEK (AUTO RESET TUẦN) ===== */
+/* ========= ISO WEEK (TỰ RESET TUẦN) ========= */
 function getISOWeek(){
-  const d=new Date();
+  const d = new Date();
   d.setHours(0,0,0,0);
-  d.setDate(d.getDate()+3-(d.getDay()+6)%7);
-  const week1=new Date(d.getFullYear(),0,4);
-  return d.getFullYear()+"-W"+
-    String(1+Math.round(((d-week1)/86400000-3+(week1.getDay()+6)%7)/7))
-    .padStart(2,"0");
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+  const week1 = new Date(d.getFullYear(),0,4);
+  return d.getFullYear() + "-W" +
+    String(
+      1 + Math.round(
+        ((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7
+      )
+    ).padStart(2,"0");
 }
-const currentWeek=getISOWeek();
+const currentWeek = getISOWeek();
 
-/* ===== LOGIN ===== */
+/* ========= LOGIN (AN TOÀN – KHÔNG TREO) ========= */
 function login(){
-  user=nameInput.value.trim();
-  if(!user) return;
-  localStorage.user=user;
+  user = nameInput.value.trim();
+  if(!user){
+    alert("Bạn chưa nhập tên");
+    return;
+  }
 
-  const role = user==="QuanLy" ? "manager" : "staff";
-  db.ref("users/"+user).set({role});
-  start();
+  const role = user === "QuanLy" ? "manager" : "staff";
+  localStorage.user = user;
+
+  db.ref("users/" + user).set({ role })
+    .then(start)
+    .catch(err => alert("Lỗi Firebase: " + err.message));
 }
+
 function logout(){
   localStorage.clear();
   location.reload();
 }
 
-/* ===== INIT ===== */
+/* ========= INIT ========= */
 function start(){
   loginBox.classList.add("hidden");
   app.classList.remove("hidden");
-  hello.innerText="Xin chào, "+user;
+  hello.innerText = "Xin chào, " + user;
 
-  db.ref("users/"+user+"/role").once("value",s=>{
-    roleTag.innerText=s.val();
-    if(s.val()==="manager"){
+  db.ref("users/" + user + "/role").once("value", snap => {
+    roleTag.innerText = snap.val();
+    if(snap.val() === "manager"){
       managerBox.classList.remove("hidden");
       loadManager();
     }
@@ -171,59 +179,58 @@ function start(){
   });
 }
 
-/* ===== STAFF VIEW ===== */
+/* ========= STAFF ========= */
 function loadMySchedule(){
-  db.ref(`finalSchedule/${currentWeek}`).once("value",snap=>{
-    let html="<table><tr><th>Thứ</th><th>Ca</th></tr>";
-    snap.forEach(d=>{
-      d.forEach(c=>{
+  db.ref(`finalSchedule/${currentWeek}`).once("value", snap => {
+    let html = "<table><tr><th>Thứ</th><th>Ca</th></tr>";
+    snap.forEach(d => {
+      d.forEach(c => {
         if(c.child(user).exists()){
-          html+=`<tr><td>${d.key}</td><td>${c.key}</td></tr>`;
+          html += `<tr><td>${d.key}</td><td>${c.key}</td></tr>`;
         }
       });
     });
-    html+="</table>";
-    mySchedule.innerHTML=html;
+    html += "</table>";
+    mySchedule.innerHTML = html;
   });
 }
 
-/* ===== MANAGER ===== */
+/* ========= MANAGER ========= */
 function loadManager(){
-  daySelect.innerHTML=days.map(d=>`<option>${d}</option>`).join("");
-  shiftSelect.innerHTML=shifts.map(s=>`<option>${s}</option>`).join("");
-  daySelect.onchange=shiftSelect.onchange=renderManage;
+  daySelect.innerHTML = days.map(d => `<option>${d}</option>`).join("");
+  shiftSelect.innerHTML = shifts.map(s => `<option>${s}</option>`).join("");
+  daySelect.onchange = shiftSelect.onchange = renderManage;
   renderManage();
 }
+
 function renderManage(){
   db.ref(`registrations/${currentWeek}/${daySelect.value}/${shiftSelect.value}`)
-    .once("value",snap=>{
-      let html="<table><tr><th>Nhân viên đăng ký</th><th>Chọn</th></tr>";
-      snap.forEach(c=>{
-        html+=`
+    .once("value", snap => {
+      let html = "<table><tr><th>Nhân viên</th><th>Chọn</th></tr>";
+      snap.forEach(c => {
+        html += `
           <tr>
             <td>${c.key}</td>
-            <td>
-              <input type="checkbox"
-                onchange="pick('${c.key}',this.checked)">
-            </td>
+            <td><input type="checkbox" onchange="pick('${c.key}',this.checked)"></td>
           </tr>`;
       });
-      html+="</table>";
-      manageTable.innerHTML=html;
+      html += "</table>";
+      manageTable.innerHTML = html;
     });
 }
-function pick(name,val){
-  const ref=db.ref(`finalSchedule/${currentWeek}/${daySelect.value}/${shiftSelect.value}/${name}`);
+
+function pick(name, val){
+  const ref = db.ref(`finalSchedule/${currentWeek}/${daySelect.value}/${shiftSelect.value}/${name}`);
   val ? ref.set(true) : ref.remove();
 }
 
-/* ===== AUTO LOGIN ===== */
+/* ========= AUTO LOGIN ========= */
 if(localStorage.user){
-  user=localStorage.user;
+  user = localStorage.user;
   start();
 }
 
-/* ===== REGISTER SERVICE WORKER ===== */
+/* ========= SERVICE WORKER ========= */
 if("serviceWorker" in navigator){
   navigator.serviceWorker.register("sw.js");
 }
