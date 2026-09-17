@@ -565,7 +565,7 @@ input,select,textarea,button{font-family:var(--font-ui);font-size:16px}
 .board-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:var(--sp-4)}
 
 .day-card{
-  position:relative;z-index:1;
+  position:relative;
   display:flex;flex-direction:column;gap:9px;
   padding:9px;
   border-radius:var(--r-md);
@@ -758,35 +758,75 @@ input,select,textarea,button{font-family:var(--font-ui);font-size:16px}
 .dd-trigger.set-double .dd-mark{color:var(--accent-ember);background:rgba(192,90,74,.16);border-color:rgba(192,90,74,.42)}
 .dd-trigger.set-double[data-state="set"]::before{background:linear-gradient(180deg, var(--accent-ember), rgba(192,90,74,.35))}
 
-.dd-panel{
-  position:absolute;top:calc(100% + 7px);left:-5px;right:-5px;z-index:300;
-  padding:6px;border-radius:var(--r-sm);
-  border:1px solid rgba(0,0,0,.65);
+/* ---------------------------------------------------------------------
+   THE SHIFT PANEL LIVES AT THE ROOT OF <body>, NOT INSIDE THE CARD.
+   Anything rendered inside #form shares a stacking context with the
+   submit button, the manager card and the footer, so a panel drawn
+   there is painted under them whatever its z-index. Lifting it out is
+   the actual fix; the coordinates come from the trigger's rect.
+   --------------------------------------------------------------------- */
+.shift-layer{position:fixed;inset:0;z-index:900;display:none}
+.shift-layer.active{display:block}
+
+.shift-scrim{
+  position:absolute;inset:0;
+  background:radial-gradient(120% 90% at 50% 40%, rgba(12,7,3,.42) 0%, rgba(8,5,2,.68) 100%);
+  opacity:0;transition:opacity .18s ease;
+}
+.shift-layer.active .shift-scrim{opacity:1}
+
+.shift-panel{
+  position:fixed;display:none;flex-direction:column;
+  border-radius:var(--r-md);
+  border:1px solid var(--brass-shadow);
   background-color:var(--wood-deep);
   background-image:
     var(--tex-grain),
-    linear-gradient(170deg, var(--wood-face) 0%, var(--wood-deep) 70%, var(--wood-shadow) 100%);
+    linear-gradient(170deg, var(--wood-face) 0%, var(--wood-base) 46%, var(--wood-deep) 78%, var(--wood-shadow) 100%);
   background-size:260px 260px, auto;
   background-blend-mode:var(--grain-blend), normal;
-  box-shadow:inset 0 1px 0 rgba(255,228,180,.18), 0 10px 28px -8px rgba(0,0,0,.85), 0 24px 48px -20px rgba(0,0,0,.9);
-  max-height:296px;overflow-y:auto;overscroll-behavior:contain;
-  display:none;
-  transform-origin:top center;
-  animation:panel-open .15s cubic-bezier(.25,.75,.35,1);
+  box-shadow:
+    inset 0 1px 0 rgba(255,232,190,.22),
+    inset 0 -2px 0 rgba(0,0,0,.55),
+    0 12px 30px -8px rgba(0,0,0,.85),
+    0 30px 60px -22px rgba(0,0,0,.95);
+  overflow:hidden;
 }
-@keyframes panel-open{from{opacity:0;transform:translateY(-4px) scaleY(.96)}to{opacity:1;transform:none}}
-.dropdown.open .dd-panel{display:block}
+.shift-panel.open{display:flex;animation:panel-rise .16s cubic-bezier(.25,.75,.35,1)}
+.shift-panel[data-placement="above"].open{animation:panel-drop .16s cubic-bezier(.25,.75,.35,1)}
+@keyframes panel-rise{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+@keyframes panel-drop{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 
-.dd-heading{
-  font-size:9.5px;font-weight:700;letter-spacing:.16em;
-  color:var(--brass-mid);padding:6px 8px 7px;
+/* brass corner rivets on the pulled-out plate */
+.shift-panel::before,.shift-panel::after{
+  content:'';position:absolute;top:8px;width:5px;height:5px;border-radius:50%;z-index:3;
+  background:radial-gradient(circle at 34% 28%, var(--brass-spec), var(--brass-dark) 70%, var(--brass-shadow));
+  box-shadow:0 1px 1px rgba(0,0,0,.55);
+}
+.shift-panel::before{left:9px} .shift-panel::after{right:9px}
+
+.panel-head{
+  flex-shrink:0;padding:11px 26px 10px;text-align:center;
   border-bottom:1px solid rgba(0,0,0,.5);
-  box-shadow:0 1px 0 rgba(255,228,180,.07);
-  margin-bottom:5px;
+  box-shadow:0 1px 0 rgba(255,228,180,.09);
+  background:linear-gradient(180deg, rgba(0,0,0,.24), transparent);
+}
+.panel-day{
+  font-family:var(--font-display);font-size:15px;font-weight:700;
+  color:var(--brass-lit);letter-spacing:.03em;line-height:1.15;
+  text-shadow:0 -1px 0 rgba(0,0,0,.7), 0 1px 0 rgba(255,228,178,.14);
+}
+.panel-sub{
+  font-size:9.5px;font-weight:700;letter-spacing:.17em;
+  color:var(--brass-mid);margin-top:3px;
+}
+.panel-body{
+  flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;padding:6px;
 }
 .dd-option{
   display:flex;align-items:center;gap:10px;
-  min-height:48px;padding:8px 9px;border-radius:var(--r-xs);
+  min-height:52px;padding:9px 10px;border-radius:var(--r-xs);
   cursor:pointer;border-left:2px solid transparent;
   transition:background .12s ease, border-color .12s ease;
 }
@@ -1324,6 +1364,11 @@ footer strong{color:var(--brass-mid);font-weight:600}
 
 <footer>© 2026 <strong>DangTung</strong> · AN CAFÉ WorkShift Pro</footer>
 
+<!-- shift panels are mounted here, outside every card's stacking context -->
+<div id="shiftLayer" class="shift-layer">
+  <div class="shift-scrim" id="shiftScrim"></div>
+</div>
+
 <script type="module">
 /* =====================================================================
    AN CAFÉ WorkShift Pro — application layer
@@ -1827,10 +1872,14 @@ function optionRow(day, shift){
     </div>`;
 }
 
+const shiftLayer = document.getElementById('shiftLayer');
+const shiftScrim = document.getElementById('shiftScrim');
+const panelOf = day => document.getElementById('panel_' + day);
+let openDay = null;
+
 function buildBoard(){
   boardEl.innerHTML = DAYS.map(day => {
     const wide = day === 'CN' ? ' is-wide' : '';
-    const options = [optionRow(day, null), ...SHIFTS.map(s => optionRow(day, s))].join('');
     return `
       <article class="day-card${wide}" id="card_${day}">
         <div class="day-top">
@@ -1841,50 +1890,134 @@ function buildBoard(){
         <div class="shift-slot">
           <span class="slot-label" id="slotLabel_${day}">${t('shiftLabel')}</span>
           <div class="dropdown" id="dropdown_${day}">
-            <div class="dd-trigger" role="button" tabindex="0" aria-haspopup="listbox" data-state="empty" data-day="${day}">
+            <div class="dd-trigger" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false" data-state="empty" data-day="${day}">
               <span class="dd-mark" id="mark_${day}">${GLYPH.pick}</span>
               <span class="dd-text">
                 <span class="dd-code" id="text_${day}">${t('pickPrompt')}</span>
                 <span class="dd-time" id="time_${day}">${t('pickHint')}</span>
               </span>
-              <svg class="dd-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-            </div>
-            <div class="dd-panel" role="listbox">
-              <div class="dd-heading" id="ddHeading_${day}">${t('chooseShift')}</div>
-              ${options}
+              <svg class="dd-caret" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
             </div>
             <input type="hidden" id="${day}" value="">
           </div>
         </div>
       </article>`;
   }).join('');
+
+  /* panels are siblings of the app wrapper, never children of a card */
+  shiftLayer.insertAdjacentHTML('beforeend', DAYS.map(day => `
+    <div class="shift-panel" id="panel_${day}" role="listbox" aria-label="${t('chooseShift')}">
+      <div class="panel-head">
+        <div class="panel-day" id="panelDay_${day}">${t('dayFullName_' + day)}</div>
+        <div class="panel-sub" id="ddHeading_${day}">${t('chooseShift')}</div>
+      </div>
+      <div class="panel-body">
+        ${[optionRow(day, null), ...SHIFTS.map(s => optionRow(day, s))].join('')}
+      </div>
+    </div>`).join(''));
 }
 buildBoard();
 
-/* delegated interaction — trigger opens, option selects */
+/* --- anchored positioning: flip, clamp, never leave the viewport ----- */
+const GAP = 9, EDGE = 12;
+
+function placePanel(day){
+  const panel = panelOf(day);
+  const trigger = document.querySelector(`#dropdown_${day} .dd-trigger`);
+  if (!panel || !trigger) return;
+
+  const r = trigger.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vv = window.visualViewport;
+  const vTop = vv ? vv.offsetTop : 0;
+  const vh = vv ? vv.height : window.innerHeight;
+
+  const width = Math.min(Math.max(r.width + 16, 268), vw - EDGE * 2);
+  panel.style.width = width + 'px';
+
+  /* measure the panel at its natural height before deciding where it goes */
+  panel.style.maxHeight = 'none';
+  panel.style.visibility = 'hidden';
+  panel.classList.add('open');
+  const natural = panel.offsetHeight;
+
+  const below = (vTop + vh) - r.bottom - GAP - EDGE;
+  const above = r.top - (vTop + GAP + EDGE);
+  const wantsBelow = below >= Math.min(natural, 260) || below >= above;
+  const room = Math.max(wantsBelow ? below : above, 180);
+  const height = Math.min(natural, room, vh * 0.64);
+
+  let left = r.left + r.width / 2 - width / 2;
+  left = Math.min(Math.max(left, EDGE), vw - EDGE - width);
+
+  panel.dataset.placement = wantsBelow ? 'below' : 'above';
+  panel.style.maxHeight = height + 'px';
+  panel.style.left = Math.round(left) + 'px';
+  panel.style.top = Math.round(wantsBelow ? r.bottom + GAP : r.top - GAP - height) + 'px';
+  panel.style.visibility = '';
+}
+
+function openPanel(day){
+  if (openDay) closePanel();
+  openDay = day;
+  shiftLayer.classList.add('active');
+  document.getElementById('dropdown_' + day).classList.add('open');
+  const trigger = document.querySelector(`#dropdown_${day} .dd-trigger`);
+  if (trigger) trigger.setAttribute('aria-expanded', 'true');
+  placePanel(day);
+  const active = panelOf(day).querySelector('.dd-option[data-active="1"]');
+  if (active) active.scrollIntoView({ block:'nearest' });
+}
+
+function closePanel(){
+  if (!openDay) return;
+  const panel = panelOf(openDay);
+  if (panel){ panel.classList.remove('open'); panel.style.maxHeight = ''; }
+  const dd = document.getElementById('dropdown_' + openDay);
+  if (dd){
+    dd.classList.remove('open');
+    const trigger = dd.querySelector('.dd-trigger');
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+  }
+  shiftLayer.classList.remove('active');
+  openDay = null;
+}
+
+/* the page keeps moving under the panel on iOS — keep it pinned */
+let placeQueued = false;
+function repositionOpenPanel(){
+  if (!openDay || placeQueued) return;
+  placeQueued = true;
+  requestAnimationFrame(() => { placeQueued = false; if (openDay) placePanel(openDay); });
+}
+window.addEventListener('scroll', repositionOpenPanel, { passive:true });
+window.addEventListener('resize', repositionOpenPanel);
+if (window.visualViewport){
+  window.visualViewport.addEventListener('resize', repositionOpenPanel);
+  window.visualViewport.addEventListener('scroll', repositionOpenPanel);
+}
+window.addEventListener('orientationchange', closePanel);
+
+/* --- interaction ----------------------------------------------------- */
 boardEl.addEventListener('click', e => {
   const trigger = e.target.closest('.dd-trigger');
-  if (trigger){ window.toggleDropdown(trigger.dataset.day); return; }
-  const option = e.target.closest('.dd-option');
-  if (option){
-    const label = option.dataset.off === '1' ? t('off') : option.dataset.value;
-    window.selectShift(option.dataset.day, option.dataset.value, label, true);
-  }
+  if (trigger) window.toggleDropdown(trigger.dataset.day);
 });
 boardEl.addEventListener('keydown', e => {
   const trigger = e.target.closest('.dd-trigger');
   if (trigger && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); window.toggleDropdown(trigger.dataset.day); }
 });
 
+shiftLayer.addEventListener('click', e => {
+  const option = e.target.closest('.dd-option');
+  if (!option){ closePanel(); return; }
+  const label = option.dataset.off === '1' ? t('off') : option.dataset.value;
+  window.selectShift(option.dataset.day, option.dataset.value, label, true);
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+
 window.toggleDropdown = function(day){
-  document.querySelectorAll('.dropdown').forEach(el => {
-    if (el.id !== 'dropdown_' + day){ el.classList.remove('open'); el.closest('.day-card').style.zIndex = '1'; }
-  });
-  const dd = document.getElementById('dropdown_' + day);
-  if (!dd) return;
-  const card = dd.closest('.day-card');
-  const open = dd.classList.toggle('open');
-  card.style.zIndex = open ? '40' : '1';
+  if (openDay === day) closePanel(); else openPanel(day);
 };
 
 /* explicit === true means the person chose this; otherwise it's the untouched
@@ -1906,22 +2039,16 @@ window.selectShift = function(day, value, label, explicit){
   const trigger = dd.querySelector('.dd-trigger');
   trigger.className = 'dd-trigger' + (shift ? ' ' + shift.sel : '');
   trigger.dataset.state = state;
+  trigger.setAttribute('aria-expanded', 'false');
   dd.closest('.day-card').classList.toggle('is-set', !!shift);
 
-  dd.querySelectorAll('.dd-option').forEach(o => o.setAttribute('data-active', o.dataset.value === value ? '1' : '0'));
+  const panel = panelOf(day);
+  if (panel) panel.querySelectorAll('.dd-option')
+    .forEach(o => o.setAttribute('data-active', o.dataset.value === value ? '1' : '0'));
 
-  dd.classList.remove('open');
-  dd.closest('.day-card').style.zIndex = '1';
+  if (openDay === day) closePanel();
   if (navigator.vibrate && shift) navigator.vibrate(8);
 };
-
-document.addEventListener('click', e => {
-  if (!e.target.closest('.dropdown')){
-    document.querySelectorAll('.dropdown.open').forEach(el => {
-      el.classList.remove('open'); el.closest('.day-card').style.zIndex = '1';
-    });
-  }
-});
 
 function resetBoard(){
   DAYS.forEach(day => window.selectShift(day, '', t('off')));
@@ -2001,6 +2128,7 @@ document.getElementById('submitBtn').onclick = async () => {
 
 /* --- 14. Area switching ---------------------------------------------- */
 document.getElementById('managerBtn').onclick = () => {
+  closePanel();
   document.getElementById('userCard').classList.add('hidden');
   document.getElementById('managerBox').classList.remove('hidden');
   initSwipeTrail();
@@ -2231,7 +2359,10 @@ function applyLanguage(){
 
     const dd = document.getElementById('dropdown_' + day);
     if (!dd) return;
-    const offOption = dd.querySelector('.dd-option[data-off="1"]');
+    const panelDay = document.getElementById('panelDay_' + day);
+    if (panelDay) panelDay.textContent = t('dayFullName_' + day);
+    const panel = panelOf(day);
+    const offOption = panel && panel.querySelector('.dd-option[data-off="1"]');
     if (offOption){
       offOption.querySelector('.o-code').textContent = t('off');
       offOption.querySelector('.o-time').textContent = t('offHint');
